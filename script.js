@@ -20,7 +20,7 @@
   /** @type { vec2[] }*/
   let points = []
 
-  canvas.addEventListener('pointermove', ({ x, y }) => {
+  canvas.addEventListener('mousemove', ({ x, y }) => {
 
     // Just take the first point
     if (!points[0]) {
