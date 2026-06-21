@@ -1,3 +1,3 @@
 
 init:
-    nix-shell -p vscode-langservers-extracted typescript-language-server
+    nix-shell -p typescript-language-server vscode-langservers-extracted

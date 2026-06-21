@@ -1,31 +1,96 @@
+'use strict';
+
+// TODO take a bunch of points and make the line follow them
+// TODO pass segment from class to ecs, and fix the displaced bug
+// - easier to access childs and removes the linked list call propagation 
+// - lighter to operate on
+
+/// Resize canvas
 (() => {
   /** @type {HTMLCanvasElement}*/
   const canvas = window.canvas
-  const ctx = canvas.getContext("2d", { alpha: true })
 
   const reset_size = () => {
     canvas.width = canvas.clientWidth
     canvas.height = canvas.clientHeight
   }
-  window.addEventListener('resize', reset_size)
+  window.addEventListener('resize', reset_size, { passive: true })
   reset_size()
+})();
+
+/// Track mouse
+(() => {
+  const track_mouse = ({ x, y }) => { window.mouse = [x, y] }
+  window.addEventListener('pointermove', track_mouse, { passive: true })
+})();
+window.mouse = [0, 0]
+
+import segment, { build_distance_constraint } from './segments.js'
+import vec from './vec.js';
+
+(() => {
+  /** @type {HTMLCanvasElement}*/
+  const canvas = window.canvas
+  const ctx = canvas.getContext("2d", { alpha: true })
 
   const fps = 1000 / 30
   const max_points = 500
   const max_step_size = 5
+  const line_width = 4
 
-  if (!ctx) { return console.error("Couldnt get the context") }
+  if (!ctx) { debugger }
 
-  /** @typedef {[number, number]} vec2 */
-  /** @type { vec2[] }*/
-  let points = []
+  const a = segment([10, 10], 8)
+  const num_segments = 8;
+  const segments = [a]
+  for (let i = 0; i <= num_segments; i++) {
+    const size = (num_segments - i)*3 + 5
 
-  canvas.addEventListener('pointermove', ({ x, y }) => {
+    segments.push(segment([i, i], size))
+    segments[i].add_child(
+      segments[i + 1],
+      build_distance_constraint(size + segments[i].size)
+    )
+  }
+
+  setInterval(() => {
+    ctx.reset()
+    ctx.strokeStyle = "#a7db75"
+    ctx.lineWidth = line_width
+
+    const dist = vec.sub2(a.pos, window.mouse)
+    a.pos = vec.add2(
+      a.pos,
+      vec.clamp2(dist, vec.clamp(vec.mag2(dist) / 10, 10, 30))
+    )
+
+    for (const segment of segments) {
+      ctx.beginPath()
+
+      segment.propagate()
+      segment.simple_draw(ctx)
+
+      ctx.stroke()
+    }
+
+  }, fps)
+
+  return
+
+  /** @import { vec2 } from './vec.js'*/
+  /** @typedef { () => vec2[] } Generate */
+  /** @typedef { (points: vec2[]) => vec2[] } Update */
+  /** @typedef { (points: vec2[]) => () } Draw */
+
+  /** @type {Generate} */
+  const linearly_interpolated_max_length_mouse = points => {
+    if (!window.mouse) { return }
+
+    const [x, y] = window.mouse
 
     // Just take the first point
     if (!points[0]) {
-      points.unshift([x, y])
-      return
+      return points.unshift([x, y])
     }
 
     // The rest interpolate so we smooth the point appearance
@@ -36,50 +101,97 @@
 
     const length = mag2(diff)
     const steps = length / max_step_size
-    const step = div2(diff, steps)
 
+    // Dont add points if length is not reached
+    if (steps == 0) {
+      return points.unshift([x, y])
+    }
+
+    const step = div2(diff, steps)
     for (let i = 0; i < Math.trunc(steps); i++) {
       points.unshift(
         add2(start, mul2(step, i))
       )
     }
+    points.unshift([x, y])
+  }
 
-    if (points.length > max_points) {
-      points.splice(max_points)
-    }
-
-    const middle = div2(
-      points.reduce((acc, cur) => add2(acc, cur)),
-      points.length
-    )
-
-    points = points.map( p => lerp2(p, middle, -.06) )
-    points = points.map( p => lerp2(p, points.at(0), .05) )
-
-  })
-
-  setInterval(() => {
-    if(!points[0]) { return }
+  /** @type {Draw} */
+  const simple_drawer = points => {
     // Clear canvas
     ctx.reset()
     ctx.strokeStyle = 'rgb(152, 224, 36)'
-    ctx.lineWidth = 4
+    ctx.lineWidth = 5
     ctx.lineCap = 'round'
 
     // Paint our points
-    for (const [ x, y ] of points) {
+    for (const [x, y] of points) {
       ctx.lineTo(x, y)
     }
     ctx.stroke()
+  }
+
+
+  /** @type {(dir: vec2) => Update} */
+  const create_wind = dir => points => {
+    let general_direction = [0, 0]
+    points.reduce((acc, cur) => {
+      general_direction = div2(add2(general_direction, sub2(cur, acc)), 1)
+      return cur
+    }, points[0] ?? [0, 0])
+
+    return points.map(p => add2(p, general_direction))
+  }
+  /** @type {(mag: number) => Update} */
+  const create_cohesion = mag => points => {
+    const middle = div2(points.reduce(add2, [0, 0]), points.length || 1)
+    return points.map(p => lerp2(p, middle, mag))
+  }
+
+  /** @type {(mag: number) => Update} */
+  const create_jitter = mag => points => {
+    const r = rand2(-mag, mag)
+    return points.map((p, i) => {
+      const scaling = ((points.length - i) / points.length) ?? 0
+      return add2(p, mul2(r, scaling))
+    })
+  }
+
+  /** @type {vec2[]}*/
+  let points = []
+
+  /** @type {Generate} */
+  const generate = linearly_interpolated_max_length_mouse
+  /** @type {Update[]} */
+  const updates = [
+    // create_cohesion(.001),
+    create_wind([0, 0]),
+    // create_jitter(10)
+  ]
+  /** @type {Draw} */
+  const draw = simple_drawer
+
+
+  setInterval(() => {
+    // Create new points
+    generate(points)
+    // Modify them
+    for (const update of updates) {
+      points = update(points)
+    }
+    // Remove old points
+    if (points.length > max_points) {
+      points.splice(max_points)
+    }
+    // Draw them
+    draw(points)
 
   }, fps)
 
 
-
-
   /** @type {Record<string,() => void>}*/
   const dev_tools = {
-    e: () => console.log(points),
+    e: () => console.table(points),
     x: () => console.clear(),
   }
   window.addEventListener('keyup', e => {
@@ -87,93 +199,4 @@
     if (call) call()
   })
 
-
-
-
-  /**
-    @param {vec2} from
-    @param {vec2} to
-    @returns {vec2}
-  */
-  function sub2(from, to) {
-    return [ to[0] - from[0], to[1] - from[1] ]
-  }
-
-  /**
-    @param {vec2} from
-    @param {vec2} to
-    @returns {vec2}
-  */
-  function add2(from, to) {
-    return [ to[0] + from[0], to[1] + from[1] ]
-  }
-
-  /**
-    @param {vec2} v
-    @returns {number}
-  */
-  function mag2(v) {
-    return Math.sqrt(v[0] * v[0] + v[1] * v[1])
-  }
-
-  /**
-    @param {vec2} v
-    @param {number} k
-    @returns {number}
-  */
-  function div2(v, k) {
-    return [ v[0] / k, v[1] / k ]
-  }
-
-  /**
-    @param {vec2} v
-    @param {number} k
-    @returns {number}
-  */
-  function mul2(v, k) {
-    return [v[0] * k, v[1] * k]
-  }
-
-  /**
-    @param {vec2} start
-    @param {vec2} end
-    @param {number} t from 0 to 100
-    @returns {number}
-  */
-  function lerp2(start, end, t) {
-    return [lerp(start[0], end[0], t), lerp(start[1], end[1], t)]
-  }
-
-  /**
-    a and b should have the same length, it is not checked
-    @template A
-    @template B
-    @template C
-    @param {A[]} a
-    @param {B[]} b
-    @param {(A, B) => C} t from 0 to 100
-    @returns {C}
-  */
-  function zip(a, b, f) {
-    const c = Array(a.length)
-    for (let i = 0; i < a.length; i++) {
-      c[i] = f(a[i], b[i])
-    }
-    return c
-  }
-
-
-  /**
-    @param {number} start
-    @param {number} end
-    @param {number} t from `range_start` to `range_end`
-    @param {number} range_start
-    @param {number} range_end
-    @returns {number}
-  */
-  function lerp(start, end, t) {
-    return start * (1 - t) + end * t
-  }
-
-})()
-
+})();
