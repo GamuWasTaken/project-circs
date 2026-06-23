@@ -59,7 +59,7 @@ import BoneList, { follow_mouse, build_distance_constraint } from './bone.js'
   setInterval(() => {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.strokeStyle = "#a7db75"
-    ctx.lineWidth = 1
+    ctx.lineWidth = 4
 
     bones.propagate()
 
