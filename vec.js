@@ -21,12 +21,12 @@ export function dot(a, b) {
 
 /**
   @param {vec2} a 
-  @param {vec2} b 
   @returns {number}
 */
-export function angle_between(a, b) {
-  const cos = dot(a, b) / mag2(a) * mag2(b)
-  return cos
+export function heading(a) {
+  return (a[1] > 0)
+    ? Math.acos(a[0]/mag2(a)) 
+    : 2*Math.PI - Math.acos(a[0]/mag2(a))
 }
 
 /**
@@ -99,6 +99,7 @@ export function lerp2(start, end, t) {
 }
 
 
+
 /**
   @param {vec2} start
   @param {vec2} end
@@ -149,6 +150,11 @@ export function rand(start, end) {
   return start + Math.random() * (end - start)
 }
 
+/** @type {vec2}*/
+const X = [1, 0]
+/** @type {vec2}*/
+const Y = [0, 1]
+
 export default {
   sub2,
   add2,
@@ -158,11 +164,13 @@ export default {
   mul2,
   lerp2,
   rand2,
-  dot_product2: dot,
-  angle_between,
+  dot,
+  heading,
 
   zip,
   lerp,
   rand,
   clamp,
+  X,
+  Y
 }
