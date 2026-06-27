@@ -1,3 +1,4 @@
+// @ts-check
 
 /** @typedef {[number, number]} vec2 */
 
@@ -23,10 +24,10 @@ export function dot(a, b) {
   @param {vec2} a 
   @returns {number}
 */
-export function heading(a) {
+export function get_dir(a) {
   return (a[1] > 0)
-    ? Math.acos(a[0]/mag2(a)) 
-    : 2*Math.PI - Math.acos(a[0]/mag2(a))
+    ? Math.acos(a[0] / mag2(a))
+    : 2 * Math.PI - Math.acos(a[0] / mag2(a))
 }
 
 /**
@@ -50,7 +51,7 @@ export function mag2(v) {
 /**
   @param {vec2} v
   @param {number} k
-  @returns {vec2}
+  @returns {vec2 | null}
 */
 export function div2(v, k) {
   if (k == 0) return null
@@ -60,13 +61,14 @@ export function div2(v, k) {
 /**
   @param {vec2} v
   @param {number} k
-  @returns {vec2}
+  @returns {vec2 | null}
 */
-export function clamp2(v, k) {
+export function clamp_mag(v, k) {
   const len = mag2(v)
   if (len <= k) return v
-
-  return mul2(div2(v, len), k)
+  const normalized = div2(v, len)
+  if (!normalized) return null
+  return mul2(normalized, k)
 }
 
 /**
@@ -99,42 +101,18 @@ export function lerp2(start, end, t) {
 }
 
 
-
 /**
-  @param {vec2} start
-  @param {vec2} end
-  @param {number} t from 0 to 100
-  @returns {number}
+  @param {number} angle
+  @returns {vec2}
 */
-export function rand2(start, end) {
-  return [rand(start, end), rand(start, end)]
+export function dir2(angle) {
+  return [Math.cos(angle), Math.sin(angle)]
 }
-
-/**
-  a and b should have the same length, it is not checked
-  @template A
-  @template B
-  @template C
-  @param {A[]} a
-  @param {B[]} b
-  @param {(A, B) => C} t from 0 to 100
-  @returns {C}
-*/
-export function zip(a, b, f) {
-  const c = Array(a.length)
-  for (let i = 0; i < a.length; i++) {
-    c[i] = f(a[i], b[i])
-  }
-  return c
-}
-
 
 /**
   @param {number} start
   @param {number} end
   @param {number} t from `range_start` to `range_end`
-  @param {number} range_start
-  @param {number} range_end
   @returns {number}
 */
 export function lerp(start, end, t) {
@@ -160,14 +138,13 @@ export default {
   add2,
   mag2,
   div2,
-  clamp2,
+  clamp_mag,
   mul2,
   lerp2,
-  rand2,
+  dir2,
   dot,
-  heading,
+  get_dir,
 
-  zip,
   lerp,
   rand,
   clamp,

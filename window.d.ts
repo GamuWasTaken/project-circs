@@ -1,9 +1,10 @@
 import { vec2 } from "./vec";
 
 
-declare global {
+export declare global {
   interface Window {
     canvas: HTMLCanvasElement
     mouse: vec2
+    ticks: number
   }
 }

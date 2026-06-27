@@ -2,6 +2,7 @@
 'use strict';
 
 // TODO take a bunch of points and make the line follow them
+// TODO for skins use ctx.clip() with some cool noise function
 
 /// Resize canvas
 (() => {
@@ -17,15 +18,24 @@
 })();
 
 /// Track mouse
+window.mouse = [0, 0];
 (() => {
   /** @type {(o: {x: number, y: number}) => void}*/
   const track_mouse = ({ x, y }) => { window.mouse = [x, y] }
   window.addEventListener('pointermove', track_mouse, { passive: true })
 })();
-window.mouse = [0, 0]
 
-import BoneList, { follow_mouse, build_distance_constraint } from './bone.js'
+/// Track ticks
+window.ticks = 0;
+(() => {
+  const update_tick = () => {
+    window.ticks += 1
+    requestAnimationFrame(update_tick)
+  }
+  requestAnimationFrame(update_tick)
+})();
 
+import BoneList, { build_follow_mouse, build_distance_constraint, build_circle_path, build_fish } from './bone.js'
 (() => {
   /** @type {HTMLCanvasElement}*/
   const canvas = window.canvas
@@ -33,40 +43,30 @@ import BoneList, { follow_mouse, build_distance_constraint } from './bone.js'
   const ctx = canvas.getContext("2d", { alpha: true })
   if (!ctx) { debugger; return }
 
-  const fps = 1000 / 30
+  const bones = build_fish(0)
 
-  const bones = new BoneList()
+  const fishes = [
+    build_fish(0),
+    build_fish(10),
+    build_fish(20),
+  ]
 
-  // Create root bone that follows mouse
-  bones.add({
-    pos: [200, 200],
-    size: 20
-  }, [follow_mouse])
-
-  const num_segments = 8;
-
-  // Create child bones that follow the prev one
-  for (let i = 0; i <= num_segments; i++) {
-    const size = (num_segments - i) * 3 + 5
-    const prev_size = (num_segments - i - 1) * 3 + 5
-    bones.add({
-      pos: [i, i],
-      size,
-      parent: i
-    }, [build_distance_constraint(size + prev_size)])
-  }
-
-  setInterval(() => {
+  const step = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.strokeStyle = "#a7db75"
     ctx.lineWidth = 4
 
-    bones.propagate()
+    for (const fish of fishes) {
+      fish.propagate()
 
-    ctx.beginPath()
-    bones.draw(ctx)
-    ctx.closePath()
+      // ctx.beginPath()
+      fish.draw(ctx)
+      // ctx.closePath()
 
-  }, fps)
+    }
+    requestAnimationFrame(step)
+  }
+
+  requestAnimationFrame(step)
 
 })();
